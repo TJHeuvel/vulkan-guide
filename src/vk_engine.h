@@ -51,6 +51,8 @@ public:
 	//run main loop
 	void run();
 
+	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+
 private:
 	void init_vulkan();
 	void init_swapchain();
@@ -60,5 +62,7 @@ private:
 	void init_framebuffers();
 
 	void init_sync_structures();
+
+	void init_pipelines();
 
 };
