@@ -25,6 +25,8 @@ using namespace std;
 		}                                                           \
 	} while (0)
 
+#define SEC_TO_NS(s) s * 1000000000
+
 int _selectedShader{ 0 };
 
 void VulkanEngine::init()
@@ -106,6 +108,10 @@ void VulkanEngine::init_swapchain() {
 
 	_swapchainImageFormat = vkbSwapchain.image_format;
 
+	_deletionQueue.push_func([=]() {
+		vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+		});
+
 }
 
 void VulkanEngine::init_commands() {
@@ -116,6 +122,10 @@ void VulkanEngine::init_commands() {
 
 	VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_commandPool);
 	VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_mainCommandBuffer));
+
+	_deletionQueue.push_func([=]() {
+		vkDestroyCommandPool(_device, _commandPool, nullptr);
+		});
 }
 
 void VulkanEngine::init_default_renderpass() {
@@ -151,6 +161,10 @@ void VulkanEngine::init_default_renderpass() {
 	render_pass_info.pSubpasses = &subpass;
 
 	VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
+
+	_deletionQueue.push_func([=]() {
+		vkDestroyRenderPass(_device, _renderPass, nullptr);
+		});
 }
 void VulkanEngine::init_framebuffers() {
 	VkFramebufferCreateInfo fb_info = {};
@@ -172,25 +186,31 @@ void VulkanEngine::init_framebuffers() {
 
 		fb_info.pAttachments = &_swapchainImageViews[i];
 		VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
+
+
+		_deletionQueue.push_func([=]() {
+				vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
+				vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+		});
 	}
+
 }
 
 void VulkanEngine::init_sync_structures() {
-	VkFenceCreateInfo fenceCreateInfo = {};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCreateInfo.pNext = nullptr;
-
-	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
 	VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_renderFence));
 
-	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	semaphoreCreateInfo.pNext = nullptr;
-	semaphoreCreateInfo.flags = 0;
+	VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info(0);
 
 	VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_presentSemaphore));
 	VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_renderSemaphore));
 
+	_deletionQueue.push_func([=]() {
+		vkDestroyFence(_device, _renderFence, nullptr);
+
+		vkDestroySemaphore(_device, _presentSemaphore, nullptr);
+		vkDestroySemaphore(_device, _renderSemaphore, nullptr);
+		});
 }
 
 
@@ -279,24 +299,27 @@ void VulkanEngine::init_pipelines() {
 		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriangleFragShader)
 	);
 	_redTrianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+	
+	vkDestroyShaderModule(_device, redTriangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, redTriangleVertexShader, nullptr);
+	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+	_deletionQueue.push_func([=]() {
+		vkDestroyPipeline(_device, _redTrianglePipeline, nullptr);
+		vkDestroyPipeline(_device, _trianglePipeline, nullptr);
+		vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
+		});
 }
 
 void VulkanEngine::cleanup()
 {
 	if (_isInitialized) {
 
-		vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+		vkWaitForFences(_device, 1, &_renderFence, true, SEC_TO_NS(1));
 
-		vkDestroyRenderPass(_device, _renderPass, nullptr);
-		vkDestroyCommandPool(_device, _commandPool, nullptr);
+		_deletionQueue.flush();
 
-
-		for (int i = 0; i < _swapchainImageViews.size(); i++)
-		{
-			vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
-			vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-
-		}
 		vkDestroyDevice(_device, nullptr);
 		vkDestroySurfaceKHR(_instance, _surface, nullptr);
 		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
@@ -309,11 +332,11 @@ void VulkanEngine::cleanup()
 void VulkanEngine::draw()
 {
 	//wait until the GPU has finished rendering the last frame. Timeout of 1 second
-	VK_CHECK(vkWaitForFences(_device, 1, &_renderFence, true, 1000000000));
+	VK_CHECK(vkWaitForFences(_device, 1, &_renderFence, true, SEC_TO_NS(1)));
 	VK_CHECK(vkResetFences(_device, 1, &_renderFence));
 
 	uint32_t swapchainImageIndex;
-	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, _presentSemaphore, nullptr, &swapchainImageIndex));
+	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, SEC_TO_NS(1), _presentSemaphore, nullptr, &swapchainImageIndex));
 
 	VkCommandBuffer cmd = _mainCommandBuffer;
 
@@ -392,11 +415,11 @@ void VulkanEngine::draw()
 
 	//increase the number of frames drawn
 	_frameNumber++;
-
-	//https://vkguide.dev/docs/chapter_2
-
 }
 
+bool isKeyDown(SDL_Event e, SDL_Keycode code) {
+	return e.type == SDL_KEYDOWN && e.key.keysym.sym == code;
+}
 void VulkanEngine::run()
 {
 	SDL_Event e;
@@ -408,25 +431,19 @@ void VulkanEngine::run()
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
 		{
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
+			if (e.type == SDL_QUIT ||
+				isKeyDown(e, SDLK_ESCAPE))
 				bQuit = true;
 
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE)
-			{
+			if (isKeyDown(e, SDLK_SPACE))
 				_selectedShader = (_selectedShader + 1) % 2;
-
-				std::cout << _selectedShader << std::endl;
-			}
-
-			//close the window when user alt-f4s or clicks the X button			
-			if (e.type == SDL_QUIT) bQuit = true;
-
 
 		}
 
 		draw();
 	}
 }
+
 
 bool VulkanEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule) {
 	std::ifstream file(filePath, std::ios::ate | std::ios::binary);

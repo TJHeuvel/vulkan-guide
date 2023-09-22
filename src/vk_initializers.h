@@ -21,6 +21,8 @@ namespace vkinit {
 	VkPipelineMultisampleStateCreateInfo multisampling_state_create_info();
 	VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+	VkFenceCreateInfo fence_create_info(VkFenceCreateFlags flags);
+	VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags);
 }
 
 class PipelineBuilder {
