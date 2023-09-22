@@ -210,6 +210,40 @@ void VulkanEngine::init_pipelines() {
 	else {
 		std::cout << "Triangle vertex shader successfully loaded" << std::endl;
 	}
+
+	VkPipelineLayoutCreateInfo pipeline_create_info = vkinit::pipeline_layout_create_info();
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_create_info, nullptr, &_trianglePipelineLayout));
+
+	PipelineBuilder pipelineBuilder;
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triangleVertexShader)
+	);
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader)
+	);
+
+	pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
+	pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+	pipelineBuilder._viewport.x = 0.f;
+	pipelineBuilder._viewport.y = 0.f;
+	pipelineBuilder._viewport.width = (float)_windowExtent.width;
+	pipelineBuilder._viewport.height = (float)_windowExtent.height;
+	pipelineBuilder._viewport.minDepth = 0.f;
+	pipelineBuilder._viewport.maxDepth = 1.f;
+
+	pipelineBuilder._scissor.offset = { 0, 0 };
+	pipelineBuilder._scissor.extent = _windowExtent;
+
+	pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+	pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
+
+	pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
+
+	pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
+
+	_trianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 }
 
 void VulkanEngine::cleanup()
@@ -276,8 +310,10 @@ void VulkanEngine::draw()
 	rpInfo.pClearValues = &clearValue;
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
 
-
+	vkCmdDraw(cmd, 3, 1.0, 0, 0);
+	
 	vkCmdEndRenderPass(cmd);
 	VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -372,7 +408,6 @@ bool VulkanEngine::load_shader_module(const char* filePath, VkShaderModule* outS
 		return false;
 
 	*outShaderModule = shaderModule;
-	outShaderModule = &shaderModule;
 
 	return true;
 }
