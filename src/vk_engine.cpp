@@ -1,4 +1,6 @@
-﻿
+﻿//I AM HERE https://vkguide.dev/docs/chapter-3/triangle_mesh_code/
+
+
 #include "vk_engine.h"
 
 #include <SDL.h>
@@ -91,6 +93,16 @@ void VulkanEngine::init_vulkan()
 
 	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 	_graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.physicalDevice = _chosenGPU;
+	allocatorInfo.device = _device;
+	allocatorInfo.instance = _instance;
+	vmaCreateAllocator(&allocatorInfo, &_allocator);
+	
+	_deletionQueue.push_func([=]() {
+		vmaDestroyAllocator(_allocator);
+		});
 }
 
 void VulkanEngine::init_swapchain() {
