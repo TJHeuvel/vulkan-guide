@@ -24,6 +24,9 @@ using namespace std;
 			abort();                                                \
 		}                                                           \
 	} while (0)
+
+int _selectedShader{ 0 };
+
 void VulkanEngine::init()
 {
 	// We initialize SDL and create a window with it. 
@@ -192,6 +195,25 @@ void VulkanEngine::init_sync_structures() {
 
 
 void VulkanEngine::init_pipelines() {
+	VkShaderModule redTriangleFragShader;
+	if (!load_shader_module("../../shaders/triangle.frag.glsl.spv", &redTriangleFragShader))
+	{
+		std::cout << "Error when building the triangle fragment shader module" << std::endl;
+	}
+	else {
+		std::cout << "Triangle fragment shader successfully loaded" << std::endl;
+	}
+
+	VkShaderModule redTriangleVertexShader;
+	if (!load_shader_module("../../shaders/triangle.vert.glsl.spv", &redTriangleVertexShader))
+	{
+		std::cout << "Error when building the triangle vertex shader module" << std::endl;
+
+	}
+	else {
+		std::cout << "Triangle vertex shader successfully loaded" << std::endl;
+	}
+
 	VkShaderModule triangleFragShader;
 	if (!load_shader_module("../../shaders/triangle-colored.frag.glsl.spv", &triangleFragShader))
 	{
@@ -210,6 +232,7 @@ void VulkanEngine::init_pipelines() {
 	else {
 		std::cout << "Triangle vertex shader successfully loaded" << std::endl;
 	}
+
 
 	VkPipelineLayoutCreateInfo pipeline_create_info = vkinit::pipeline_layout_create_info();
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_create_info, nullptr, &_trianglePipelineLayout));
@@ -244,6 +267,18 @@ void VulkanEngine::init_pipelines() {
 	pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
 
 	_trianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+
+
+	pipelineBuilder._shaderStages.clear();
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriangleVertexShader)
+	);
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriangleFragShader)
+	);
+	_redTrianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 }
 
 void VulkanEngine::cleanup()
@@ -310,10 +345,10 @@ void VulkanEngine::draw()
 	rpInfo.pClearValues = &clearValue;
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _selectedShader == 0 ? _trianglePipeline : _redTrianglePipeline);
 
 	vkCmdDraw(cmd, 3, 1.0, 0, 0);
-	
+
 	vkCmdEndRenderPass(cmd);
 	VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -376,8 +411,17 @@ void VulkanEngine::run()
 			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
 				bQuit = true;
 
+			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE)
+			{
+				_selectedShader = (_selectedShader + 1) % 2;
+
+				std::cout << _selectedShader << std::endl;
+			}
+
 			//close the window when user alt-f4s or clicks the X button			
 			if (e.type == SDL_QUIT) bQuit = true;
+
+
 		}
 
 		draw();

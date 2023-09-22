@@ -41,6 +41,7 @@ public:
 
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
 
 	//initializes everything in the engine
 	void init();
