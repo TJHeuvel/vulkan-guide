@@ -8,7 +8,7 @@
 #include <vector>
 #include <functional>
 #include <deque>
-//#include <vk_mesh.h>
+#include <vk_mesh.h>
 #include <unordered_map>
 
 #include <glm/glm.hpp>
@@ -64,8 +64,11 @@ public:
 	VkFence _renderFence;
 
 	VkPipelineLayout _trianglePipelineLayout;
+
 	VkPipeline _trianglePipeline;
 	VkPipeline _redTrianglePipeline;
+	VkPipeline _meshPipeline;
+	Mesh _triangleMesh;
 
 	DeletionQueue _deletionQueue;
 
@@ -80,6 +83,9 @@ public:
 
 	//run main loop
 	void run();
+
+	void load_meshes();
+	void upload_mesh(Mesh& mesh);
 
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
