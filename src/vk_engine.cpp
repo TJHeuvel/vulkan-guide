@@ -1,6 +1,5 @@
 ﻿//I AM HERE https://vkguide.dev/docs/chapter-3/triangle_mesh_code/
 
-
 #include "vk_engine.h"
 
 #include <SDL.h>
@@ -13,6 +12,9 @@
 
 #include <iostream>
 #include <fstream>
+
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 
 //we want to immediately abort when there is an error. In normal engines this would give an error message to the user, or perform a dump of state.
 using namespace std;

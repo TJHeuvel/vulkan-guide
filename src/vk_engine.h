@@ -3,13 +3,16 @@
 
 #pragma once
 
+
 #include <vk_types.h>
 #include <vector>
-#include <deque>
 #include <functional>
+#include <deque>
+//#include <vk_mesh.h>
+#include <unordered_map>
 
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 struct DeletionQueue {
 	std::deque<std::function<void()>> deletors;
@@ -34,6 +37,8 @@ public:
 	VkExtent2D _windowExtent{ 1700 , 900 };
 
 	struct SDL_Window* _window{ nullptr };
+
+	VmaAllocator _allocator;
 
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
@@ -63,8 +68,6 @@ public:
 	VkPipeline _redTrianglePipeline;
 
 	DeletionQueue _deletionQueue;
-
-	VmaAllocator _allocator;
 
 	//initializes everything in the engine
 	void init();
